@@ -1,4 +1,4 @@
-from rpg.main import Game
+from rpg.main import main
 
 if __name__ == "__main__":
-    Game().run()
+    main()

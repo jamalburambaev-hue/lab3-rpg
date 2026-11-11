@@ -7,7 +7,9 @@ from ..item.item import Item
 from ..item.weapon import Weapon
 from ..kit.starter_kit import StarterKitFactory
 from .hero_class import HeroClass
-
+from ..defense.damage import Damage
+from ..defense.damage_handler import DamageHandler
+from ..progress.achievement import Achievement
 
 class Hero(Combatant):
     MAX_NAME_LENGTH = 20
@@ -20,12 +22,16 @@ class Hero(Combatant):
         self._name = builder.name
         self._hero_class = builder.hero_class
         self._level = builder.level
-        self._experience = 0
+        self._experience = builder.experience  
         self._gold = builder.gold
         self._weapon = builder.weapon
         self._armor = builder.armor
-        self._inventory: List[Item] = []
+        self._inventory: List[Item] = list(builder.inventory) 
+        self._achievements: List[Achievement] = list(builder.achievements) 
+        
+        self._defense: DamageHandler | None = None
         self._health = self.get_max_health()
+        self.restore_health()
 
     class Builder:
         def __init__(self) -> None:
@@ -35,6 +41,9 @@ class Hero(Combatant):
             self.armor: Armor | None = None
             self.level: int = 1
             self.gold: int = Hero.STARTING_GOLD
+            self.experience: int = 0
+            self.inventory: List[Item] = []
+            self.achievements: List[Achievement] = []
 
         def set_name(self, name: str) -> "Hero.Builder":
             self.name = name
@@ -42,6 +51,14 @@ class Hero(Combatant):
 
         def set_hero_class(self, hero_class: HeroClass) -> "Hero.Builder":
             self.hero_class = hero_class
+            return self
+
+        def set_weapon(self, weapon: Weapon) -> "Hero.Builder":
+            self.weapon = weapon
+            return self
+
+        def set_armor(self, armor: Armor) -> "Hero.Builder":
+            self.armor = armor
             return self
 
         def set_starter_kit(self, starter_kit: StarterKitFactory) -> "Hero.Builder":
@@ -55,6 +72,18 @@ class Hero(Combatant):
 
         def set_gold(self, gold: int) -> "Hero.Builder":
             self.gold = gold
+            return self
+
+        def set_experience(self, experience: int) -> "Hero.Builder":
+            self.experience = experience
+            return self
+
+        def set_inventory(self, inventory: List[Item]) -> "Hero.Builder":
+            self.inventory = inventory
+            return self
+
+        def set_achievements(self, achievements: List[Achievement]) -> "Hero.Builder":
+            self.achievements = achievements
             return self
 
         def build(self) -> "Hero":
@@ -92,14 +121,18 @@ class Hero(Combatant):
         hit = self._weapon.roll_damage()
         return Hit(hit.damage + (self._level - 1) * self.DAMAGE_PER_LEVEL, hit.critical)
 
-    def receive_hit(self, damage: int) -> int:
-        reduced_damage = round(damage * (1 - self._armor.get_defense()))
-        dealt = max(1, reduced_damage)
-        self._health = max(0, self._health - dealt)
-        return dealt
+    def receive_hit(self, damage: int) -> Damage:
+        dmg = Damage(damage) 
+        
+        if self._defense:
+            self._defense.handle(dmg)
+            
+        self._health = max(0, self._health - dmg.amount)
+        return dmg 
 
     def restore_health(self) -> None:
         self._health = self.get_max_health()
+        self._defense = self._hero_class.create_defense(self._armor, self._level)
 
     def gain_experience(self, amount: int) -> int:
         self._experience += amount
@@ -135,8 +168,18 @@ class Hero(Combatant):
             self.remove_item(item)
             self._inventory.append(self._armor)
             self._armor = item
+            self.restore_health() 
         else:
             raise ValueError(f"Предмет нельзя экипировать: {item.get_name()}")
+
+    def unlock(self, achievement: Achievement) -> bool:
+        if achievement in self._achievements:
+            return False
+        self._achievements.append(achievement)
+        return True
+
+    def get_achievements(self) -> List[Achievement]:
+        return list(self._achievements)
 
     def get_hero_class(self) -> HeroClass:
         return self._hero_class

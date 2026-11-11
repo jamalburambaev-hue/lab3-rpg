@@ -8,6 +8,12 @@ from ..kit.ranger_kit import RangerKitFactory
 from ..kit.starter_kit import StarterKitFactory
 from ..kit.warrior_kit import WarriorKitFactory
 
+from ..item.armor import Armor
+from ..defense.armor_handler import ArmorHandler
+from ..defense.barrier_handler import BarrierHandler
+from ..defense.evasion_handler import EvasionHandler
+from ..defense.damage_handler import DamageHandler
+
 
 class HeroClass(Enum):
     WARRIOR = ("warrior", "Воин", 120, WarriorKitFactory)
@@ -41,3 +47,26 @@ class HeroClass(Enum):
 
     def get_base_health(self) -> int:
         return self._base_health
+
+    def create_defense(self, armor: Armor, level: int) -> DamageHandler:
+        evasion = 0.15 if self == HeroClass.RANGER else 0.0
+        barrier = 30 if self == HeroClass.MAGE else 0
+        
+        if self == HeroClass.WARRIOR and level >= 3:
+            barrier = 20
+        elif self == HeroClass.RANGER and level >= 5:
+            barrier = 15
+        elif self == HeroClass.MAGE and level >= 3:
+            evasion = 0.10
+
+        armor_handler = ArmorHandler(armor.get_defense())
+        first = armor_handler
+
+        if evasion > 0:
+            first = EvasionHandler(evasion)
+            first.set_next(armor_handler)
+        
+        if barrier > 0:
+            armor_handler.set_next(BarrierHandler(barrier))
+
+        return first

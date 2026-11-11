@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import List
 
-
 @dataclass(frozen=True)
 class Enchantment:
     """Зачарование неизменяемо: его нельзя поменять после создания."""
@@ -19,3 +18,9 @@ WARDING = Enchantment("warding", "Охранное", 0, 0.10, 50)
 
 FOR_WEAPONS: List[Enchantment] = [SHARP, FIERY]
 FOR_ARMOR: List[Enchantment] = [STURDY, WARDING]
+
+def by_code(code: str) -> Enchantment:
+    for enchantment in (*FOR_WEAPONS, *FOR_ARMOR):
+        if enchantment.code == code:
+            return enchantment
+    raise ValueError(f"Зачарование с кодом '{code}' не найдено")

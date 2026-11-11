@@ -11,6 +11,13 @@ from ..item.item import Item
 from .expedition_report import ExpeditionReport
 from .rewards import Rewards
 
+from ..enemy.armored_enemy import ArmoredEnemy
+from ..enemy.legendary_enemy import LegendaryEnemy
+from ..enemy.windfury_enemy import WindfuryEnemy
+
+from ..tactic.tactic import Tactic
+from ..tactic.balanced_tactic import BalancedTactic
+
 
 class Location(ABC):
     LOOT_CHANCE = 0.6
@@ -28,16 +35,20 @@ class Location(ABC):
     @abstractmethod
     def _get_loot_table(self) -> List[str]: ...
 
-    def explore(self, hero: Hero) -> ExpeditionReport:
-        return self.explore_with_seed(hero, Dice().next_seed())
+    def explore(self, hero: Hero, tactic=None) -> ExpeditionReport:
+        return self.explore_with_seed(hero, Dice().next_seed(), tactic)
 
-    def explore_with_seed(self, hero: Hero, seed: int) -> ExpeditionReport:
+    def explore_with_seed(self, hero: Hero, seed: int, tactic: Tactic | None = None) -> ExpeditionReport:
         dice = Dice()
         dice.reseed(seed)
 
         hero.restore_health()
         enemy = self._create_enemy()
-        battle = Battle(hero, enemy).run()
+        
+        if dice.chance(0.2):
+            enemy = self._make_elite(enemy, dice)
+
+        battle = Battle(hero, enemy, tactic).run()
 
         if battle.outcome == Outcome.VICTORY:
             rewards = self._reward(hero, enemy, dice)
@@ -80,3 +91,15 @@ class Location(ABC):
 
     def get_recommended_level(self) -> int:
         return self._recommended_level
+
+    def _make_elite(self, enemy: Enemy, dice: Dice) -> Enemy:
+        both = dice.chance(0.25)
+        if dice.chance(0.5):
+            enemy = LegendaryEnemy(enemy)
+            if both:
+                enemy = WindfuryEnemy(enemy)
+        else:
+            enemy = WindfuryEnemy(enemy)
+            if both:
+                enemy = LegendaryEnemy(enemy)
+        return ArmoredEnemy(enemy) if dice.chance(0.3) else enemy
